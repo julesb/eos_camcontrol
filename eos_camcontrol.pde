@@ -271,6 +271,7 @@ class Camera {
   void updateOrientationAndPosition(float dt) {
     float mouseXScale = (mouseX - width / 2) * 0.5;
     float mouseYScale = -(mouseY - height / 2) * 0.5;
+    final float epsilon = 0.00001;
     mouseXScale = (mouseLocked && !becameLocked) ? mouseXScale : 0;
     mouseYScale = (mouseLocked && !becameLocked) ? mouseYScale : 0;
     becameLocked = false;
@@ -288,7 +289,7 @@ class Camera {
     altVel *= dampRDt;
 
     az = (az % TWO_PI + TWO_PI) % TWO_PI;
-    alt = constrain(alt, -PI_2, PI_2);
+    alt = constrain(alt, -PI_2+epsilon, PI_2-epsilon);
 
     vpn.x = cos(alt) * cos(az);
     vpn.y = sin(alt);
