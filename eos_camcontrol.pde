@@ -21,6 +21,7 @@ color textBGColor = color(0, 0, 0, 64);
 int TEXT_SIZE_NORMAL = 24 * displayDensity();
 
 PVector posPrev, lookatPrev;
+// float fovPrev;
 
 void setup() {
   size(800, 800, P3D);
@@ -28,8 +29,9 @@ void setup() {
   oscP5 = new OscP5(this, 9999);
   remoteAddr = new NetAddress("192.168.1.102", 12000);
   cam = new Camera(0, 5, 10);
-  posPrev = cam.pos.copy();
-  lookatPrev = cam.lookAt.copy();
+  posPrev = new PVector(0,0,0);
+  lookatPrev = new PVector(0,0,0);
+  // fovPrev = 0.0;
   // perspective(cam.fov, float(width)/float(height), 0.1, 1000);
 
   try {
@@ -47,26 +49,23 @@ void draw() {
   checkSendOsc();
 
   pushMatrix();
-  perspective(cam.fov, float(width)/float(height), 0.1, 1000);
-  camera(cam.pos.x, cam.pos.y, cam.pos.z,
-         cam.lookAt.x, cam.lookAt.y, cam.lookAt.z,
-         cam.up.x, cam.up.y, cam.up.z);
-  // scale(-1,1,1);
+    perspective(radians(cam.fov), float(width)/float(height),
+                cam.near_clip, cam.far_clip);
+    camera(cam.pos.x, cam.pos.y, cam.pos.z,
+           cam.lookAt.x, cam.lookAt.y, cam.lookAt.z,
+           cam.up.x, cam.up.y, cam.up.z);
 
-  drawAxes();
-  fill(255,0,0);
-  stroke(255);
-  box(1);
-  // noFill();
-  // stroke(255);
-  // box(500);
+    drawAxes();
+    fill(255,0,0);
+    stroke(255);
+    box(2);
   popMatrix();
 
   // 2D
   ortho();
   resetMatrix();
   translate(-width/2, -height/2);
-  drawInfo(20, 20, 350, 200);
+  drawInfo(20, 20, 350, 300);
 
   drawHorizon();
 
@@ -98,7 +97,7 @@ void drawAxes() {
 }
 
 void drawHorizon() {
-  float horizonY = cam.pos.y + map(cam.alt, -cam.fov/2, cam.fov/2, 0, height);
+  float horizonY = cam.pos.y + map(cam.alt, -radians(cam.fov)/2, radians(cam.fov)/2, 0, height);
   noFill();
   stroke(255, 0, 255);
   strokeWeight(1);
@@ -153,10 +152,20 @@ void drawInfo(float x, float y, float w, float h) {
   text(altValue, valueX, textOffsetY);
   
   textOffsetY = textOriginY + lineSpace*lineCount++;
-  String fovValue = String.format("%.2f", degrees(cam.fov));
+  String fovValue = String.format("%.2f", cam.fov);
+  // String fovValue = String.format("%.2f", degrees(cam.fov));
   text("FOV", labelX, textOffsetY);
   text(fovValue, valueX, textOffsetY);
 
+  textOffsetY = textOriginY + lineSpace*lineCount++;
+  String nearVal = String.format("%.2f", cam.near_clip);
+  text("Near clip", labelX, textOffsetY);
+  text(nearVal, valueX, textOffsetY);
+  
+  textOffsetY = textOriginY + lineSpace*lineCount++;
+  String farVal = String.format("%.2f", cam.far_clip);
+  text("Far clip", labelX, textOffsetY);
+  text(farVal, valueX, textOffsetY);
 
 
 }
@@ -180,12 +189,12 @@ void keyTyped() {
     case '0':
       cam.pos = new PVector(0,0,0);
       break;
-    case '=':
-      cam.fov += 0.1;
-      break;
-    case '-':
-      cam.fov -= 0.1;
-      break;
+    // case '=':
+    //   cam.fov += 0.1;
+    //   break;
+    // case '-':
+    //   cam.fov -= 0.1;
+    //   break;
       
   }
 }
@@ -212,6 +221,7 @@ void setMouseLock(Boolean isLocked) {
 
 class Camera {
   PVector pos, lookAt, vel, vpn, up;
+  float near_clip, far_clip;
   float az, alt, azVel, altVel;
   float dampR, dampM, fov, accel_force,
         breaking_force, zRot;
@@ -219,6 +229,8 @@ class Camera {
   Camera(float x, float y, float z) {
     pos = new PVector(x, y, z);
     lookAt = new PVector(0, 0, 0);
+    near_clip = 0.5;
+    far_clip = 20;
     vel = new PVector(0, 0, 0);
     vpn = new PVector(0, 0, -1);
     up = new PVector(0, -1, 0);
@@ -228,7 +240,7 @@ class Camera {
     altVel = 0;
     dampR = 0.0005;
     dampM = 0.002;
-    fov = PI / 3;
+    fov = 60; // PI / 3;
     accel_force = 20.0;
     breaking_force = 10.0; 
     zRot = 0;
@@ -242,14 +254,15 @@ class Camera {
       vel = vel.sub(forward_force);
     }
     if (keys.contains('s')) {
-      vel = vel.add(vpn.mult(dt*accel_force));
+      PVector backward_force = PVector.mult(vpn, dt*-accel_force);
+      vel = vel.sub(backward_force);
     }
     if (keys.contains('a')) {
-      PVector strafe = vpn.cross(up).mult(dt*accel_force);
+      PVector strafe = PVector.mult(vpn.cross(up).normalize(), dt*accel_force);
       vel.add(strafe);
     }
     if (keys.contains('d')) {
-      PVector strafe = vpn.cross(up).mult(dt*-accel_force);
+      PVector strafe = PVector.mult(vpn.cross(up).normalize(), dt*-accel_force);
       vel.add(strafe);
     }
 
@@ -260,9 +273,34 @@ class Camera {
       vel.sub(PVector.mult(up, dt*accel_force));
     }
     if (keys.contains('x')) {
-      // vel.add(vel.mult(breaking_force*dt*-1)); // brakes
       PVector brakingForce = PVector.mult(vel, breaking_force * dt * -1);
       vel.add(brakingForce);
+    }
+
+    if (keys.contains('-')) {
+      cam.fov -= 0.1;
+      sendOscFloat("/camcontrol/cam/fov", cam.fov);
+    }
+    if (keys.contains('=')) {
+      cam.fov += 0.1;
+      sendOscFloat("/camcontrol/cam/fov", cam.fov);
+    }
+    
+    if (keys.contains('n')) {
+      cam.near_clip -= 0.01;
+      sendOscFloat("/camcontrol/cam/near", cam.near_clip);
+    }
+    if (keys.contains('N')) {
+      cam.near_clip += 0.01;
+      sendOscFloat("/camcontrol/cam/near", cam.near_clip);
+    }
+    if (keys.contains('f')) {
+      cam.far_clip -= 0.1;
+      sendOscFloat("/camcontrol/cam/far", cam.far_clip);
+    }
+    if (keys.contains('F')) {
+      cam.far_clip += 0.1;
+      sendOscFloat("/camcontrol/cam/far", cam.far_clip);
     }
 
     updateOrientationAndPosition(dt);
@@ -301,7 +339,7 @@ class Camera {
     // friction
     vel.mult(dampMDt);
 
-    lookAt = PVector.add(pos, PVector.mult(vpn, 6));
+    lookAt = PVector.add(pos, PVector.mult(vpn, 10));
   }
 }
 
@@ -323,4 +361,10 @@ void checkSendOsc() {
     oscP5.send(lookAtMsg, remoteAddr);
     lookatPrev = cam.lookAt.copy();
   }
+}
+
+void sendOscFloat(String oscId, float value) {
+  OscMessage msg = new OscMessage(oscId);
+  msg.add(value);
+  oscP5.send(msg, remoteAddr);
 }
