@@ -31,6 +31,7 @@ void setup() {
   cam = new Camera(0, 5, 10);
   posPrev = new PVector(0,0,0);
   lookatPrev = new PVector(0,0,0);
+  hint(DISABLE_DEPTH_MASK);
   // fovPrev = 0.0;
   // perspective(cam.fov, float(width)/float(height), 0.1, 1000);
 
@@ -55,10 +56,10 @@ void draw() {
            cam.lookAt.x, cam.lookAt.y, cam.lookAt.z,
            cam.up.x, cam.up.y, cam.up.z);
 
-    drawAxes();
-    fill(255,0,0);
+    fill(255,0,0, 32);
     stroke(255);
     box(2);
+    drawAxes();
   popMatrix();
 
   // 2D
@@ -123,23 +124,32 @@ void drawInfo(float x, float y, float w, float h) {
 
   // Camera Pos
   textOffsetY = textOriginY + lineSpace*lineCount++;
-  String posValue = String.format("[%.2f, %.2f, %.2f]",
+  String posValue = String.format("[% .2f, % .2f, % .2f]",
                                       cam.pos.x, cam.pos.y, cam.pos.z);
   text("Viewpoint", labelX, textOffsetY);
   text(posValue, valueX, textOffsetY);
 
   // Camera Lookat
   textOffsetY = textOriginY + lineSpace*lineCount++;
-  String lookatValue = String.format("[%.2f, %.2f, %.2f]",
+  String lookatValue = String.format("[% .2f, % .2f, % .2f]",
                                      cam.lookAt.x, cam.lookAt.y, cam.lookAt.z);
   text("Look at", labelX, textOffsetY);
   text(lookatValue, valueX, textOffsetY);
   
+  // VPN
   textOffsetY = textOriginY + lineSpace*lineCount++;
-  String vpnValue = String.format("[%.2f, %.2f, %.2f]",
+  String vpnValue = String.format("[% .2f, % .2f, % .2f]",
                                   cam.vpn.x, cam.vpn.y, cam.vpn.z);
   text("VPN", labelX, textOffsetY);
   text(vpnValue, valueX, textOffsetY);
+  
+  // Velocity
+  textOffsetY = textOriginY + lineSpace*lineCount++;
+  String velValue = String.format("[% .2f, % .2f, % .2f]",
+                                  cam.vel.x, cam.vel.y, cam.vel.z);
+  text("Velocity", labelX, textOffsetY);
+  text(velValue, valueX, textOffsetY);
+
 
   textOffsetY = textOriginY + lineSpace*lineCount++;
   String azValue = String.format("%.2f", degrees(cam.az));
@@ -230,7 +240,7 @@ class Camera {
     pos = new PVector(x, y, z);
     lookAt = new PVector(0, 0, 0);
     near_clip = 0.5;
-    far_clip = 20;
+    far_clip = 100;
     vel = new PVector(0, 0, 0);
     vpn = new PVector(0, 0, -1);
     up = new PVector(0, -1, 0);
@@ -241,7 +251,7 @@ class Camera {
     dampR = 0.0005;
     dampM = 0.002;
     fov = 60; // PI / 3;
-    accel_force = 20.0;
+    accel_force = 40.0;
     breaking_force = 10.0; 
     zRot = 0;
   }
