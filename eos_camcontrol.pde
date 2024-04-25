@@ -18,13 +18,12 @@ NetAddress remoteAddr;
 Boolean mouseLocked = false;
 Boolean becameLocked = false;
 color textBGColor = color(0, 0, 0, 64);
-int TEXT_SIZE_NORMAL = 24 * displayDensity();
+int TEXT_SIZE_NORMAL = 20 * displayDensity();
 
 PVector posPrev, lookatPrev;
-// float fovPrev;
 
 void setup() {
-  size(800, 800, P3D);
+  size(720, 720, P3D);
   textSize(TEXT_SIZE_NORMAL);
   oscP5 = new OscP5(this, 9999);
   remoteAddr = new NetAddress("192.168.1.102", 12000);
@@ -32,8 +31,6 @@ void setup() {
   posPrev = new PVector(0,0,0);
   lookatPrev = new PVector(0,0,0);
   hint(DISABLE_DEPTH_MASK);
-  // fovPrev = 0.0;
-  // perspective(cam.fov, float(width)/float(height), 0.1, 1000);
 
   try {
     robot = new Robot();
@@ -50,12 +47,11 @@ void draw() {
   checkSendOsc();
 
   pushMatrix();
-    perspective(radians(cam.fov), float(width)/float(height),
+    perspective(radians(cam.fov), cam.aspect,
                 cam.near_clip, cam.far_clip);
     camera(cam.pos.x, cam.pos.y, cam.pos.z,
            cam.lookAt.x, cam.lookAt.y, cam.lookAt.z,
            cam.up.x, cam.up.y, cam.up.z);
-
     fill(255,0,0, 32);
     stroke(255);
     box(2);
@@ -66,7 +62,8 @@ void draw() {
   ortho();
   resetMatrix();
   translate(-width/2, -height/2);
-  drawInfo(20, 20, 350, 300);
+  drawAspect();
+  drawInfo(20, 20, 300, 300);
 
   drawHorizon();
 
@@ -77,7 +74,7 @@ void draw() {
 
 
 void drawAxes() {
-  int len = 10000;
+  int len = 1000;
   color grey = color(128,128,128);
 
   // X
@@ -103,6 +100,29 @@ void drawHorizon() {
   stroke(255, 0, 255);
   strokeWeight(1);
   line(0, horizonY, width, horizonY);
+}
+
+void drawAspect() {
+  float windowAr = (float)width / height;
+  float w = width;
+  float h = height / cam.aspect*windowAr;
+  float x1, y1, x2, y2;
+  x1 = 0;
+  y1 = height/2 - h/2;
+  // x2 = width;
+  // y2 = height - h/2;
+  
+  fill(0, 0, 0, 220);
+  noStroke();
+  rect(0, 0, width, y1);
+  rect(0, y1+h, width, (height-h)/2);
+
+
+  noFill();
+  stroke(255,0,0);
+  rect(x1, y1, w, h);
+
+
 }
 
 void drawInfo(float x, float y, float w, float h) {
@@ -150,7 +170,6 @@ void drawInfo(float x, float y, float w, float h) {
   text("Velocity", labelX, textOffsetY);
   text(velValue, valueX, textOffsetY);
 
-
   textOffsetY = textOriginY + lineSpace*lineCount++;
   String azValue = String.format("%.2f", degrees(cam.az));
   text("Azimuth", labelX, textOffsetY);
@@ -163,9 +182,13 @@ void drawInfo(float x, float y, float w, float h) {
   
   textOffsetY = textOriginY + lineSpace*lineCount++;
   String fovValue = String.format("%.2f", cam.fov);
-  // String fovValue = String.format("%.2f", degrees(cam.fov));
   text("FOV", labelX, textOffsetY);
   text(fovValue, valueX, textOffsetY);
+  
+  textOffsetY = textOriginY + lineSpace*lineCount++;
+  String arValue = String.format("%.2f", cam.aspect);
+  text("Aspect", labelX, textOffsetY);
+  text(arValue, valueX, textOffsetY);
 
   textOffsetY = textOriginY + lineSpace*lineCount++;
   String nearVal = String.format("%.2f", cam.near_clip);
@@ -234,7 +257,7 @@ class Camera {
   float near_clip, far_clip;
   float az, alt, azVel, altVel;
   float dampR, dampM, fov, accel_force,
-        breaking_force, zRot;
+        breaking_force, zRot, aspect ;
 
   Camera(float x, float y, float z) {
     pos = new PVector(x, y, z);
@@ -251,7 +274,8 @@ class Camera {
     dampR = 0.0005;
     dampM = 0.002;
     fov = 60; // PI / 3;
-    accel_force = 40.0;
+    aspect = float(width)/height;
+    accel_force = 20.0;
     breaking_force = 10.0; 
     zRot = 0;
   }
@@ -311,6 +335,14 @@ class Camera {
     if (keys.contains('F')) {
       cam.far_clip += 0.1;
       sendOscFloat("/camcontrol/cam/far", cam.far_clip);
+    }
+    if (keys.contains('[')) {
+      cam.aspect -= 0.01;
+      sendOscFloat("/camcontrol/cam/aspect", cam.aspect);
+    }
+    if (keys.contains(']')) {
+      cam.aspect += 0.01;
+      sendOscFloat("/camcontrol/cam/aspect", cam.aspect);
     }
 
     updateOrientationAndPosition(dt);
@@ -378,3 +410,4 @@ void sendOscFloat(String oscId, float value) {
   msg.add(value);
   oscP5.send(msg, remoteAddr);
 }
+
